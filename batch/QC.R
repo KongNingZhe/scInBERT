@@ -3,9 +3,10 @@ library(Seurat)
 library(tidyverse)
 library(patchwork)
 library(SeuratWrappers)
+args <- commandArgs(trailingOnly = TRUE)
 sc <- import("scanpy")
 
-adata <- sc$read("/seu_share/home/xiejianming/zhangc/code/batch/data/GSE158055_control+PBMC.h5ad")
+adata <- sc$read(args[[1]])
 
 data <- t(adata$X)
 rownames(data) <- rownames(adata$var)

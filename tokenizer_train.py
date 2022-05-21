@@ -1,28 +1,46 @@
 from tokenizers import Tokenizer
-from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-from tokenizers.models import BPE
-from tokenizers.normalizers import Lowercase, NFKC, Sequence
-from tokenizers.pre_tokenizers import ByteLeve
-from tokenizers.trainers import BpeTrainer
+from tokenizers.models import WordLevel
 
-# 1、创建一个空的字节对编码模型
-tokenizer = Tokenizer(BPE())
+bert_tokenizer = Tokenizer(WordLevel(unk_token="[UNK]"))
 
-#2、启用小写和unicode规范化，序列规范化器Sequence可以组合多个规范化器，并按顺序执行
-tokenizer.normalizer = Sequence([
-    NFKC(),
-    Lowercase()
-])
-#3、标记化器需要一个预标记化器，负责将输入转换为ByteLevel表示。
-tokenizer.pre_tokenizer = ByteLevel()
+from tokenizers import normalizers
+from tokenizers.normalizers import NFD
 
-# 4、添加解码器，将token令牌化的输入恢复为原始的输入
-tokenizer.decoder = ByteLevelDecoder()
-# 5、初始化训练器，给他关于我们想要生成的词汇表的详细信息
-trainer = BpeTrainer(vocab_size=858, show_progress=True, initial_alphabet=ByteLevel.alphabet())
-# 6、开始训练我们的语料
-tokenizer.train(files=["./tmp/all_data_txt.txt"], trainer=trainer)
-# 最终得到该语料的Tonkernize，查看下词汇大小
-print("Trained vocab size: {}".format(tokenizer.get_vocab_size()))
-# 保存训练的tokenizer
-tokenizer.model.save('./my_token/')
+normalizer = normalizers.Sequence([NFD()])
+bert_tokenizer.normalizer = normalizer
+from tokenizers.pre_tokenizers import Split
+
+bert_tokenizer.pre_tokenizer = Split('\t','removed')
+
+from tokenizers.processors import TemplateProcessing
+
+bert_tokenizer.post_processor = TemplateProcessing(
+    single="[CLS] $A [SEP]",
+    special_tokens=[
+        ("[CLS]", 0),
+        ("[SEP]", 1),
+	    ("[MSK]", 2),
+        ("[PAD]", 3),
+        ("[UNK]", 4)
+    ],
+)
+from tokenizers.trainers import WordLevelTrainer
+
+trainer = WordLevelTrainer(
+	vocab_size=30000,
+	special_tokens=["[CLS]","[SEP]","[UNK]","[MSK]","[PAD]"]
+)
+files = ['../data/all2.genes']
+data = []
+for f in files:
+	f_h = open(f)
+	ls = f_h.readlines()
+	for l in ls:
+		data.append(l.strip())
+bert_tokenizer.train_from_iterator(data, trainer = trainer)
+
+bert_tokenizer.save("../token_model/model_all2/token.json")
+
+from transformers import PreTrainedTokenizerFast
+tokenizer = PreTrainedTokenizerFast(tokenizer_file='../token_model/model_all2/token.json')
+tokenizer.save_pretrained("../token_model/model_all2/")
